@@ -110,4 +110,4 @@ This project was developed as part of the Radio Systems curriculum at IP Leiria 
 
 ## License
 
-This is an academic project for educational purposes.
+This project uses MIT License.
