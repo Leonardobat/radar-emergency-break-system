@@ -17,51 +17,39 @@ classdef RadarRunner < handle
             obj.isRunning = false;
         end
         
-        % Call this before calling start() if you want to save data
         function enableRecording(obj)
             disp('Starting to log frames');
             obj.isRecording = true;
-            obj.recordedFrames = {}; % Clear buffer
+            obj.recordedFrames = {};
         end
         
         function start(obj, dataFile)
             try
                 if nargin > 1 && ischar(dataFile)
-                    % --- OFFLINE MODE ---
                     fprintf('Initializing File Playback...\n');
-                    obj.radar = MockRadar(dataFile, 'profile_range_for_log1.cfg'); % true = loop data
+                    obj.radar = MockRadar(dataFile, 'profile_range.cfg');
                 else
-                    % --- LIVE MODE ---
-                    % Initialize radar with UI setup
                      fprintf('Starting Radar Setup...\n');
                     obj.radar = Radar.withUI();
                 end
 
 
-                % Initialize CFAR processor with radar config
                 fprintf('Initializing CFAR Processor...\n');
                 obj.rangeCfarProcessor = RangeCFARProcessor(obj.radar.radarConfig, 6, 2);
-                obj.rangeDopplerCfarProcessor = RangeDopplerCFARProcessor(obj.radar.radarConfig, 4, 1, 4, 1);
+                obj.rangeDopplerCfarProcessor = RangeDopplerCFARProcessor(obj.radar.radarConfig, 6, 2, 6, 2);
 
-                % Initialize Emergency Brake Processor
                 fprintf('Initializing Emergency Brake Processor...\n');
                 maxDeceleration = 9.8; % m/s² (1g deceleration)
                 obj.emergencyBrakeProcessor = EmergencyBrakeProcessor(obj.radar.radarConfig, maxDeceleration);
 
-                % Create plot UI
                 fprintf('Initializing visualization...\n');
-                % obj.plotUI = PlotRangeCFARUI(obj.radar.radarConfig);
-                % obj.plotUI = PlotRangeDopplerUI(obj.radar.radarConfig);
                 obj.plotStatisticsUI = PlotStatisticsUI(100);
                 obj.plotUI = PlotRangeDopplerCFARUI(obj.radar.radarConfig);
 
-                % Register close figure callback
                 obj.plotUI.onClose(@() obj.stop());
                 
-                % Setup timer for continuous updates
                 obj.setupTimer();
                 
-                % Start the timer
                 start(obj.pollingTimer);
                 obj.isRunning = true;
 
@@ -115,26 +103,18 @@ classdef RadarRunner < handle
         
         function pollAndProcessData(obj)
             try
-                % Read data from radar
                 tlvFrame = obj.radar.readData();
                 
-                % Check if valid frame was received
                 if isempty(tlvFrame) || ~tlvFrame.isValid()
                     return;
                 end
                 
-                % Apply CFAR processing to data to get object detections
-                % [detections, thresholdLine] = obj.rangeCfarProcessor.processData(tlvFrame);
-                % data = {tlvFrame.RangeProfile, thresholdLine, detections};
-
                 detections = obj.rangeDopplerCfarProcessor.processData(tlvFrame);
 
-                % Emergency brake processing
-                [brakeForce, threatInfo] = obj.emergencyBrakeProcessor.processDetections(detections, tlvFrame);
+                obj.emergencyBrakeProcessor.processDetections(detections, tlvFrame);
 
                 data = {tlvFrame.RangeDopplerProfile, detections};
 
-                % Update plot
                 obj.plotUI.updatePlot(data);
                 obj.plotStatisticsUI.updatePlot(tlvFrame);
 
@@ -144,7 +124,6 @@ classdef RadarRunner < handle
                 
                 drawnow limitrate;
             catch ME
-                % Handle errors gracefully
                 fprintf("Error updating plot:\n%s\n", ME.getReport('extended', 'hyperlinks', 'off'));
                 obj.stop();
             end
@@ -153,20 +132,17 @@ classdef RadarRunner < handle
     
     methods (Static)
         function run(dataLogging)
-            isLogginEnabled = false;
+            isLogEnabled = false;
             if nargin > 0
-                isLogginEnabled = dataLogging;
+                isLogEnabled = dataLogging;
             end    
-            % Convenience static method to create and start runner
             runner = RadarRunner();
             
-            if isLogginEnabled
+            if isLogEnabled
                 runner.enableRecording();
             end
             
             runner.start();
-
-            % Keep runner in base workspace to prevent garbage collection
             assignin('base', 'radarRunner', runner);
         end
     end

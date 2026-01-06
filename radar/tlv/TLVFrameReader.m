@@ -41,9 +41,8 @@ classdef TLVFrameReader
             arguments (Output)
                 tlv TLVFrame
             end
-            % First, search for valid magic word
+
             if ~obj.findMagicWord(dataPort)
-                % If magic word not found, return invalid frame
                 tlv = TLVFrame();
                 return;
             end
@@ -56,12 +55,11 @@ classdef TLVFrameReader
             detectedObjects = TLVDetectedObject.empty(1,0);
             statistics = TLVStatistics();
             detectedObjectsSideInfo = TLVDetectedObjectSideInfo.empty(1, 0);
-            % TODO: Parse TLV frame data based on the structure tags
-            % TODO: Handle multiple TLV tags
             for i = 1:tlvFrameHeader.NumTLVs(1)
                 tag = read(dataPort, 1, 'uint32');    % Structure tag (4bytes)
                 size = read(dataPort, 1, 'uint32');   % Length of structure (4bytes)
                 readSize = readSize + size + obj.TLV_TAG_PLUS_SIZE_BYTES;
+
                 switch(tag)
                     case TLVTag.DetectedObjects
                         detectedObjects = obj.parseDetectedObjects(tlvFrameHeader.NumDetectedObj, dataPort);
@@ -77,12 +75,8 @@ classdef TLVFrameReader
                         detectedObjectsSideInfo = ...
                             obj.parseSideInfoPacket(tlvFrameHeader.NumDetectedObj, dataPort);
                     case TLVTag.Temperature
-                        % skip unknonw stuff
                         temperature = obj.parseTemperature(dataPort);
                     otherwise
-                        % Skip unknown TLV data
-                        % For now all useful data has been read the missing
-                        % bytes will be treated on the padding function
                         break
                 end
             end
@@ -94,7 +88,7 @@ classdef TLVFrameReader
                 rangeDopplerProfile,...
                 statistics,...
                 detectedObjectsSideInfo...
-            );
+                );
             obj.readPadding(dataPort, tlvFrameHeader.PacketLength, readSize);
         end
     end
@@ -191,11 +185,8 @@ classdef TLVFrameReader
                 tlvRangeProfile
             end
             bins = obj.radarConfig.NumRangeBins;
-            tlvRangeProfile = read(dataPort, bins, 'uint16');
-
-            % rangeProfile = read(dataPort, bins, 'uint16');
-            % Linearize the signal so it can be used with the CFAR
-            % tlvRangeProfile = obj.dspFftScale * power(2, rangeProfile * obj.log2LinScale);
+            rangeProfile = read(dataPort, bins, 'uint16');
+            tlvRangeProfile = obj.dspFftScale * power(2, rangeProfile * obj.log2LinScale);
         end
 
         function tlvNoiseProfile = parseNoiseProfile(obj, dataPort)
@@ -207,11 +198,8 @@ classdef TLVFrameReader
                 tlvNoiseProfile
             end
             bins = obj.radarConfig.NumRangeBins;
-            tlvNoiseProfile = read(dataPort, bins, 'uint16');
-
-            % noiseProfile = read(dataPort, bins, 'uint16');
-            % Linearize the signal so it can be used with the CFAR
-            % tlvNoiseProfile = obj.dspFftScale * power(2, noiseProfile * obj.log2LinScale);
+            noiseProfile = read(dataPort, bins, 'uint16');
+            tlvNoiseProfile = obj.dspFftScale * power(2, noiseProfile * obj.log2LinScale);
         end
 
         function tlvRangeDopplerProfile = parseRangeDoppler(obj, dataPort)
@@ -223,20 +211,14 @@ classdef TLVFrameReader
                 tlvRangeDopplerProfile
             end
             bins = obj.radarConfig.NumRangeBins * obj.radarConfig.NumDopplerBins;
-            tlvRangeDopplerProfile = read(dataPort, bins, 'uint16');
+            rangeDopplerProfile = read(dataPort, bins, 'uint16');
 
-            % rangeDopplerProfile = read(dataPort, bins, 'uint16');
-            % Linearize the signal so it can be used with the CFAR
-            % tlvRangeDopplerProfile = obj.dspFftScale * power(2, noiseProfile * obj.log2LinScale);
+            tlvRangeDopplerProfile = obj.dspFftScale * power(2, rangeDopplerProfile * obj.log2LinScale);
 
-            % TI Data is: [Range0, Dop0], [Range0, Dop1] ... [RangeR, DopD]
-            % We read into (Doppler, Range) then transpose to get (Range, Doppler)
             tlvRangeDopplerProfile = reshape(tlvRangeDopplerProfile,...
                 obj.radarConfig.NumDopplerBins,...
                 obj.radarConfig.NumRangeBins).';
-            
-            % Shift the Doppler bins so 0 velocity is in the center
-            % We shift along dimension 2 (the Doppler columns)
+
             tlvRangeDopplerProfile = fftshift(tlvRangeDopplerProfile, 2);
         end
 
@@ -273,17 +255,17 @@ classdef TLVFrameReader
                 tlvTemperature
             end
             tlvTemperature.tempReportValid = read(dataPort,1,'uint32');
-            tlvTemperature.time = read(dataPort,1,'uint32');       % 1LSB=1ms
-            tlvTemperature.tmpRx0Sens = read(dataPort,1,'uint16'); % 1LSB=1ºC
-            tlvTemperature.tmpRx1Sens = read(dataPort,1,'uint16'); % 1LSB=1ºC
-            tlvTemperature.tmpRx2Sens = read(dataPort,1,'uint16'); % 1LSB=1ºC
-            tlvTemperature.tmpRx3Sens = read(dataPort,1,'uint16'); % 1LSB=1ºC
-            tlvTemperature.tmpTx0Sens = read(dataPort,1,'uint16'); % 1LSB=1ºC
-            tlvTemperature.tmpTx1Sens = read(dataPort,1,'uint16'); % 1LSB=1ºC
-            tlvTemperature.tmpTx2Sens = read(dataPort,1,'uint16'); % 1LSB=1ºC
-            tlvTemperature.tmpPmSens = read(dataPort,1,'uint16');  % 1LSB=1ºC
-            tlvTemperature.tmpDig0Sens = read(dataPort,1,'uint16');% 1LSB=1ºC    
-            tlvTemperature.tmpDig1Sens = read(dataPort,1,'uint16');% 1LSB=1ºC
+            tlvTemperature.time = read(dataPort,1,'uint32');
+            tlvTemperature.tmpRx0Sens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpRx1Sens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpRx2Sens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpRx3Sens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpTx0Sens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpTx1Sens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpTx2Sens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpPmSens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpDig0Sens = read(dataPort,1,'uint16');
+            tlvTemperature.tmpDig1Sens = read(dataPort,1,'uint16');
         end
 
         function sideInfos = parseSideInfoPacket(obj, numDetectedObj, dataPort)
@@ -307,15 +289,14 @@ classdef TLVFrameReader
 
 
         % The end of the packet is padded so that the total packet length is always multiple of 32 Bytes.
-        function readPadding(obj, dataPort, packetLenght, readSize)
+        function readPadding(obj, dataPort, packetLength, readSize)
             arguments (Input)
                 obj TLVFrameReader
                 dataPort
-                packetLenght
+                packetLength
                 readSize
             end
-            padding = packetLenght - readSize;
-            %fprintf('Padding bytes: %d\n', padding);
+            padding = packetLength - readSize;
             if padding > 0
                 read(dataPort, padding, 'uint8');
             end

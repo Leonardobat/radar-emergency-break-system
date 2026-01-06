@@ -45,7 +45,7 @@ classdef PlotRangeDopplerCFARUI < RadarPlot
             colormap(ax, jet);
             legend(ax, 'Location', 'northeast');
             grid(ax, 'on');
-            clim(ax, [62, 78]);
+            clim(ax, [0, 60]);
         end
 
         function updatePlot(obj, data)

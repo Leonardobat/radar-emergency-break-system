@@ -5,7 +5,7 @@ classdef RangeCFARProcessor
     properties (Access = private)
         trainCells = 6;
         guardCells = 2;
-        probabilityOfFalseAlarm = 10e-2;
+        probFalseAlarm = 1e-2;
         numVirtAnt
         numRangeBins
         kernel
@@ -21,10 +21,10 @@ classdef RangeCFARProcessor
                 obj.guardCells = guardCells;
             end
             N = 2 * obj.trainCells;
-            obj.alpha = N * (obj.probabilityOfFalseAlarm^(-1/N) - 1);
+            obj.alpha = N * (obj.probFalseAlarm^(-1/N) - 1);
             kernel = ones(1, (2*obj.trainCells) + (2*obj.guardCells) + 1);
-            kernel(obj.trainCells+1 : obj.trainCells+2*obj.guardCells+1) = 0; % Zero out the guard cells and CUT
-            obj.kernel = kernel / N; % Normalize to calculate mean directly
+            kernel(obj.trainCells+1 : obj.trainCells+2*obj.guardCells+1) = 0;
+            obj.kernel = kernel / N;
         end
         
         function [detections, thresholdLine] = processData(obj, tvlFrame)
@@ -32,16 +32,9 @@ classdef RangeCFARProcessor
                 return;
             end
 
-            % Calculate Noise Level for the whole vector at once
-            % The 'same' argument clips the output to the size of rangeProfile
             noiseProfile = conv(tvlFrame.RangeProfile, obj.kernel, 'same');
-
-            % Apply Threshold
             thresholdLine = noiseProfile * obj.alpha;
 
-            % --- CRITICAL: EDGE HANDLING ---
-            % We must ignore the edges where the kernel was "hanging off"
-            % The number of invalid cells on each side is (Train + Guard)
             invalidRegion = obj.trainCells + obj.guardCells;
 
             % Set start edges to Infinity

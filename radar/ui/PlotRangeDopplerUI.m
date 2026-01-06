@@ -46,7 +46,7 @@ classdef PlotRangeDopplerUI < RadarPlot
             
             % --- Update Plot ---
             % We transpose rdMap back to (D, R) for the image YData/XData alignment
-            dbRangeDopplerProfile = 20 * log10(rangeDopplerProfile + eps); 
+            dbRangeDopplerProfile = 20 * log10(tlvFrame.RangeDopplerProfile + eps);
             obj.plotHandle(1).CData = dbRangeDopplerProfile.';
             
             drawnow('limitrate');
